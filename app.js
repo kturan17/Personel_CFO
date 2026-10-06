@@ -255,7 +255,9 @@
   }
   function applyTheme() {
     const t = DATA && DATA.settings && DATA.settings.tema;
-    document.documentElement.dataset.theme = t === 'Açık' ? 'light' : t === 'Koyu' ? 'dark' : '';
+    const want = t === 'Açık' ? 'light' : t === 'Koyu' ? 'dark' : null, root = document.documentElement;
+    if (want) { root.dataset.theme = want; root.dataset.cfoTheme = '1'; }
+    else if (root.dataset.cfoTheme) { delete root.dataset.theme; delete root.dataset.cfoTheme; }
     const meta = $('meta[name=theme-color]');
     if (meta) meta.content = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#f4f5f7';
   }
@@ -327,6 +329,7 @@
         <div class="btns"><button class="btn" data-go="diger/plan">Aylık plandan başla</button></div>
         <div class="btns"><button class="btn sec" data-act="loadSample">Örnek veriyle dene</button></div></div>`;
     }
+    if (window.CFO_DEMO) h += `<div class="note" style="margin:0 0 12px">Önizleme: rakamlar örnek veridir. Değişiklik yapabilirsiniz ama sayfa kapanınca kaydedilmez.</div>`;
     const st = R.durumBaslik;
     h += `<div class="status ${chipCls(st)}">${esc(st)}</div>`;
     h += backupBanner();
@@ -359,6 +362,7 @@
   }
   function kpi(l, v, d, cls) { return `<div class="kpi ${cls || ''}"><div class="l">${esc(l)}</div><div class="v">${v}</div><div class="d">${esc(d || '')}</div></div>`; }
   function backupBanner() {
+    if (window.CFO_DEMO) return '';
     const lb = DATA.meta.lastBackup;
     const days = lb ? R.today - E.toSerial(lb) : null;
     if (days != null && days <= 14) return '';
@@ -837,6 +841,7 @@
     return true;
   }
   async function doBackup() {
+    if (window.CFO_DEMO) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
     const blob = await Store.backupBlob(DATA);
     const ok = await shareOrDownload(blob, `kisisel-cfo-yedek-${todayStr()}.json`);
     if (ok) { DATA.meta.lastBackup = todayStr(); await commit('Yedek oluşturuldu'); }
@@ -869,7 +874,8 @@
   }
   function loadScript(src) { return new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Dosya yüklenemedi')); document.head.appendChild(s); }); }
   async function exportExcel() {
-    try { await loadScript('vendor/xlsx.mini.min.js'); } catch (e) { toast('⚠ Excel modülü yüklenemedi'); return; }
+    if (window.CFO_DEMO) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
+    try { await loadScript('xlsx.mini.min.js'); } catch (e) { toast('⚠ Excel modülü yüklenemedi'); return; }
     const X = window.XLSX, wb = X.utils.book_new();
     const pc = v => isNum(v) ? Math.round(v * 1e6) / 1e4 : (v == null ? '' : v);
     const nv = v => isNum(v) ? Math.round(v * 100) / 100 : (v == null ? '' : v);
@@ -927,6 +933,7 @@
       return commit('Kalemler eklendi; tutarları girin');
     }
     if (a === 'backup') return doBackup();
+    if (window.CFO_DEMO && (a === 'restore' || a === 'setPin')) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
     if (a === 'restore') { const f = $('#restoreFile'); f.value = ''; f.onchange = () => f.files[0] && restore(f.files[0]); f.click(); return; }
     if (a === 'setPin') { const p = await askPin(Store.hasPin() ? 'Yeni PIN' : 'PIN belirle', true); if (p) { await Store.setPin(p, DATA); toast('PIN açıldı — veriler şifrelendi'); render(); } return; }
     if (a === 'removePin') { if (ui.confirmDel !== 'pin') { ui.confirmDel = 'pin'; t.textContent = 'Emin misiniz? Tekrar dokunun'; return; } ui.confirmDel = null; await Store.setPin(null, DATA); toast('PIN kaldırıldı'); return render(); }
@@ -958,7 +965,7 @@
   });
   function showLock() {
     const L = $('#lock'); L.classList.add('open');
-    L.innerHTML = `<div class="box"><img class="logo" src="icons/icon-192.png" alt=""><h2 style="margin:0 0 4px">Kişisel CFO</h2><p class="small muted">PIN'inizi girin</p>
+    L.innerHTML = `<div class="box"><img class="logo" src="icon-192.png" alt=""><h2 style="margin:0 0 4px">Kişisel CFO</h2><p class="small muted">PIN'inizi girin</p>
       <input class="inp" type="password" inputmode="numeric" id="lockPin" maxlength="8" autocomplete="off" aria-label="PIN">
       <div class="err small" id="lockErr" style="color:var(--crit);min-height:20px;margin-top:6px"></div>
       <div class="btns"><button class="btn block" id="lockOk">Aç</button></div>
@@ -978,7 +985,7 @@
   async function start() {
     parseHash();
     if (Store.isEncrypted()) { showLock(); return; }
-    try { DATA = normalize(Store.loadPlain() || emptyData()); } catch (e) { DATA = emptyData(); toast('⚠ Kayıtlı veri okunamadı'); }
+    try { DATA = normalize(Store.loadPlain() || (window.CFO_DEMO ? window.CFO_SAMPLE() : emptyData())); } catch (e) { DATA = emptyData(); toast('⚠ Kayıtlı veri okunamadı'); }
     await commit();
     Store.persist();
   }

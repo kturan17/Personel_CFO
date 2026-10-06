@@ -17,7 +17,7 @@ Borçlarınızı, nakit akışınızı ve "ek parayı nereye yatırmalıyım?" k
    - **Create repository**'ye basın.
 3. **Dosyaları yükleyin:** açılan sayfada **uploading an existing file** bağlantısına tıklayın.
    - Zip'i bilgisayarınızda açın.
-   - `kisisel-cfo` klasörünün **içindeki her şeyi** (index.html, css, js, icons, vendor, sw.js, manifest.webmanifest, .nojekyll…) sürükleyip bırakın.
+   - `kisisel-cfo` klasörünün **içindeki tüm dosyaları** seçip sürükleyip bırakın (alt klasör yok; 16 dosya).
    - Alttaki **Commit changes**'e basın.
    - `index.html` deponun ana dizininde olmalıdır, bir alt klasörde değil.
 4. **Pages'i açın:**
@@ -48,11 +48,11 @@ Yeni sürüm geldiğinde değişen dosyaları aynı depoya yeniden yükleyin (**
 
 | Dosya | Görev |
 |---|---|
-| `index.html`, `css/app.css`, `js/app.js` | Arayüz |
-| `js/engine.js` | Hesap motoru (Excel v2 ile birebir aynı formüller) |
-| `js/store.js` | Telefonda saklama, PIN şifreleme, yedek |
-| `js/charts.js` | Grafikler |
-| `sw.js`, `manifest.webmanifest`, `icons/` | Çevrimdışı çalışma ve ana ekran simgesi |
-| `vendor/xlsx.mini.min.js` | Excel'e aktarma (SheetJS, Apache-2.0 lisansı) |
+| `index.html`, `app.css`, `app.js` | Arayüz |
+| `engine.js` | Hesap motoru (Excel v2 ile birebir aynı formüller) |
+| `store.js` | Telefonda saklama, PIN şifreleme, yedek |
+| `charts.js` | Grafikler |
+| `sw.js`, `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` | Çevrimdışı çalışma ve ana ekran simgesi |
+| `xlsx.mini.min.js` | Excel'e aktarma (SheetJS, Apache-2.0 lisansı) |
 
 Bu uygulama bir hesap aracıdır, finansal danışmanlık değildir. Önemli kararlardan önce güncel tutarları bankanızdan teyit edin.

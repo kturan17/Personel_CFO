@@ -1,5 +1,5 @@
 /* Çevrimdışı çalışma: uygulama dosyalarını önbelleğe alır. Kullanıcı verisi önbelleğe/sunucuya GİTMEZ. */
-const VERSION = 'cfo-v1.0.2';
+const VERSION = 'cfo-v1.0.3';
 const FILES = ['./', 'index.html', 'app.css', 'engine.js', 'sample.js', 'store.js', 'charts.js', 'app.js',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'xlsx.mini.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });

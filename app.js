@@ -367,7 +367,7 @@
     const days = lb ? R.today - E.toSerial(lb) : null;
     if (days != null && days <= 14) return '';
     return `<div class="card" style="background:var(--warn-bg);border-color:transparent"><div class="row"><div class="grow small"><b>${days == null ? 'Henüz yedek alınmadı.' : days + ' gündür yedek alınmadı.'}</b><br>Telefon değişirse veya tarayıcı verisi silinirse veriler kaybolur.</div>
-      <button class="btn" data-act="backup" style="flex:none">Yedekle</button></div></div>`;
+      <button class="btn" data-go="diger/yedek" style="flex:none">Yedekle</button></div></div>`;
   }
   function evRow(e) {
     const d = e.date == null ? null : new Date(e.date * 86400000);
@@ -603,9 +603,13 @@
   function pYedek() {
     const lb = DATA.meta.lastBackup;
     return `<div class="card"><h3>Yedekle</h3><p class="small">Tüm verileriniz tek bir dosyaya kaydedilir. ${Store.hasPin() ? '<b>PIN açık olduğu için yedek dosyası da PIN ile şifrelenir.</b>' : 'PIN açmazsanız yedek dosyası şifresizdir; güvenli bir yerde saklayın.'}</p>
-        <p class="small muted">Son yedek: ${lb ? fmtDate(lb) : 'hiç'}</p><div class="btns"><button class="btn" data-act="backup">Yedek dosyası oluştur</button></div></div>
-      <div class="card"><h3>Geri yükle</h3><p class="small">Bir yedek dosyasını seçin. Bu cihazdaki mevcut verilerin <b>yerine</b> geçer.</p>
-        <input type="file" id="restoreFile" accept=".json,application/json" hidden><div class="btns"><button class="btn sec" data-act="restore">Yedek dosyası seç</button></div></div>
+        <p class="small muted">Son yedek: ${lb ? fmtDate(lb) : 'hiç'}</p>
+        <div class="btns"><button class="btn" data-act="backup">Paylaş / Kaydet</button></div>
+        <p class="tiny muted">Açılan menüde iPhone'da <b>Dosyalara Kaydet</b> (iCloud Drive), Android'de <b>Drive'a kaydet</b> seçin ya da kendinize e-postayla/WhatsApp ile gönderin. Menüyü kapatırsanız dosya kaydedilmez.</p>
+        <div class="btns"><button class="btn sec" data-act="backupDl">Telefona indir</button><button class="btn sec" data-act="backupCopy">Metin olarak kopyala</button></div>
+        <p class="tiny muted">İndirilen dosya: Dosyalar uygulaması → İndirilenler. Metin seçeneği en kolayı: kopyalayıp Notlar'a veya e-postaya yapıştırın.</p></div>
+      <div class="card"><h3>Geri yükle</h3><p class="small">Bu cihazdaki mevcut verilerin <b>yerine</b> geçer.</p>
+        <input type="file" id="restoreFile" hidden><div class="btns"><button class="btn sec" data-act="restore">Yedek dosyası seç</button><button class="btn sec" data-act="restorePaste">Metni yapıştır</button></div></div>
       <div class="card"><h3>PIN kilidi</h3><p class="small">${Store.hasPin() ? '✅ PIN açık. Veriler telefonda AES-256 ile şifreli duruyor; uygulama arka plana alınınca 1 dakika sonra kilitlenir.' : 'PIN açarsanız veriler telefonda şifreli saklanır ve uygulama her açılışta PIN ister.'}</p>
         <p class="small muted">PIN'i unutursanız veriler açılamaz; yalnızca silip yedekten dönebilirsiniz.</p>
         <div class="btns"><button class="btn sec" data-act="setPin">${Store.hasPin() ? 'PIN değiştir' : 'PIN belirle'}</button>${Store.hasPin() ? '<button class="btn danger" data-act="removePin">PIN kaldır</button>' : ''}</div></div>
@@ -840,11 +844,32 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     return true;
   }
-  async function doBackup() {
+  const backupName = () => `kisisel-cfo-yedek-${todayStr()}.json`;
+  async function markBackup(msg) { DATA.meta.lastBackup = todayStr(); await commit(msg); }
+  async function doBackup(mode) {
     if (window.CFO_DEMO) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
-    const blob = await Store.backupBlob(DATA);
-    const ok = await shareOrDownload(blob, `kisisel-cfo-yedek-${todayStr()}.json`);
-    if (ok) { DATA.meta.lastBackup = todayStr(); await commit('Yedek oluşturuldu'); }
+    const blob = await Store.backupBlob(DATA), name = backupName();
+    if (mode === 'copy') {
+      const text = await blob.text();
+      try { await navigator.clipboard.writeText(text); await markBackup('Yedek panoya kopyalandı — Notlar veya e-postaya yapıştırın'); }
+      catch (e) {
+        openSheet('Yedek metni', `<p class="small">Aşağıdaki metnin tamamını seçip kopyalayın; Notlar uygulamasına veya kendinize e-postaya yapıştırın.</p>
+          <textarea class="inp" id="bkText" readonly style="width:100%;min-height:180px;font-size:12px;font-family:monospace">${esc(text)}</textarea>`,
+          () => { const t = $('#bkText'); t.focus(); t.select(); });
+        await markBackup();
+      }
+      return;
+    }
+    if (mode === 'share') {
+      const file = new File([blob], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: name }); await markBackup('Yedek paylaşıldı'); return; }
+        catch (e) { if (e && e.name === 'AbortError') { toast('Kaydetme iptal edildi — dosya hiçbir yere kaydedilmedi'); return; } }
+      } else toast('Bu cihaz paylaşmayı desteklemiyor; dosya indiriliyor');
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    await markBackup(`İndirildi: ${name} — Dosyalar uygulamasında “İndirilenler” klasörüne bakın`);
   }
   function askPin(title, confirm) {
     return new Promise(resolve => {
@@ -864,13 +889,13 @@
       });
     });
   }
-  async function restore(file) {
+  async function restore(file) { return restoreText(await file.text()); }
+  async function restoreText(text) {
     try {
-      const text = await file.text();
-      const d = await Store.parseBackup(text, () => askPin('Yedeğin PIN\'i', false));
+      const d = await Store.parseBackup(text.trim(), () => askPin('Yedeğin PIN\'i', false));
       DATA = normalize(d); R = null;
       await commit('Yedek geri yüklendi');
-    } catch (e) { toast('⚠ Geri yüklenemedi: ' + (e.name === 'OperationError' ? 'PIN yanlış' : e.message)); }
+    } catch (e) { toast('⚠ Geri yüklenemedi: ' + (e.name === 'OperationError' ? 'PIN yanlış' : e instanceof SyntaxError ? 'metin eksik veya bozuk' : e.message)); }
   }
   function loadScript(src) { return new Promise((res, rej) => { if (window.XLSX) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Dosya yüklenemedi')); document.head.appendChild(s); }); }
   async function exportExcel() {
@@ -932,8 +957,12 @@
         .forEach(([ad, tip]) => DATA.plan.items.push({ id: uid(), ad, tip, tutar: null }));
       return commit('Kalemler eklendi; tutarları girin');
     }
-    if (a === 'backup') return doBackup();
-    if (window.CFO_DEMO && (a === 'restore' || a === 'setPin')) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
+    if (a === 'backup') return doBackup('share');
+    if (a === 'backupDl') return doBackup('download');
+    if (a === 'backupCopy') return doBackup('copy');
+    if (a === 'restorePaste') { openSheet('Yedek metnini yapıştır', `<p class="small">Kopyaladığınız yedek metninin tamamını aşağıya yapıştırın.</p><textarea class="inp" id="pasteText" style="width:100%;min-height:180px;font-size:12px;font-family:monospace"></textarea><div class="btns"><button class="btn" data-act="restorePasteGo">Geri yükle</button></div>`); return; }
+    if (a === 'restorePasteGo') { const t = $('#pasteText').value; if (!t.trim()) { toast('Önce metni yapıştırın'); return; } closeSheet(); return restoreText(t); }
+    if (window.CFO_DEMO && (a === 'restore' || a === 'setPin' || a === 'restorePaste')) { toast('Önizlemede kapalı — telefona kurduğunuz uygulamada çalışır'); return; }
     if (a === 'restore') { const f = $('#restoreFile'); f.value = ''; f.onchange = () => f.files[0] && restore(f.files[0]); f.click(); return; }
     if (a === 'setPin') { const p = await askPin(Store.hasPin() ? 'Yeni PIN' : 'PIN belirle', true); if (p) { await Store.setPin(p, DATA); toast('PIN açıldı — veriler şifrelendi'); render(); } return; }
     if (a === 'removePin') { if (ui.confirmDel !== 'pin') { ui.confirmDel = 'pin'; t.textContent = 'Emin misiniz? Tekrar dokunun'; return; } ui.confirmDel = null; await Store.setPin(null, DATA); toast('PIN kaldırıldı'); return render(); }
